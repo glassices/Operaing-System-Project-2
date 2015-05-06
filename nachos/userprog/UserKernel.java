@@ -2,7 +2,6 @@ package nachos.userprog;
 
 import nachos.machine.*;
 import nachos.threads.*;
-import nachos.userprog.*;
 
 /**
  * A kernel that can support multiple user processes.
@@ -13,6 +12,12 @@ public class UserKernel extends ThreadedKernel {
      */
     public UserKernel() {
 	super();
+	if (emptyPageList == null){
+		numEmptyPages = Machine.processor().getNumPhysPages();
+		emptyPageList = new PageBlock(-1, 0);
+		emptyPageList.next = new PageBlock(0, numEmptyPages);
+		emptyPageList.next.next = new PageBlock(numEmptyPages + 1, 0);
+	}
     }
 
     /**
@@ -47,6 +52,18 @@ public class UserKernel extends ThreadedKernel {
 	while (c != 'q');
 
 	System.out.println("");
+	
+	// Test memory allocation
+	/*
+	System.out.println("Testing memory allocation");
+	MemoryTest.selfTest();
+	*/
+	
+	// Test scheduler
+	/*
+	System.out.println("Testing lottery scheduler");
+	new LotteryScheduler().selfTest();
+	*/
     }
 
     /**
@@ -106,6 +123,73 @@ public class UserKernel extends ThreadedKernel {
     public void terminate() {
 	super.terminate();
     }
+    
+    public class PageBlock{
+    	public PageBlock(int position, int size){
+    		this.position = position;
+    		this.size = size;
+    	}
+    	
+    	public PageBlock free(PageBlock other){
+    		if (other.position < position)
+    			return null;
+    		PageBlock t = this;
+    		while (t != null){
+	    		if (other.position == t.position + t.size){
+	    			numEmptyPages += other.size;
+	    			t.size += other.size;
+					if (t.position + t.size == t.next.position){
+						t.size += t.next.size;
+						t.next = t.next.next;
+					}
+					return t;
+	    		}
+	    		else if (other.position + other.size < t.next.position){
+	    			numEmptyPages += other.size;
+	    			other.next = t.next;
+	    			t.next = other;
+	    			return other;
+	    		}
+	    		else if (other.position + other.size == t.next.position){
+	    			numEmptyPages += other.size;
+	    			t.next.position -= other.size;
+	    			t.next.size += other.size;
+	    			return t.next;
+	    		}
+	    		else
+	    			t = t.next;
+    		}
+    		return null;
+    	}
+    	
+    	public PageBlock allocate(int size){
+    		PageBlock ret;
+    		if (next.size <= size){
+    			numEmptyPages -= next.size;
+    			ret = next;
+    			next = next.next;
+    			//
+    			//System.out.println("Pages allocated: [" + ret.position + ", " + (ret.position + ret.size - 1) + "]");
+    			return ret;
+    		}
+    		else{
+    			numEmptyPages -= size;
+    			ret = new PageBlock(next.position, size);
+    			next.position += size;
+    			next.size -= size;
+    			//
+    			//System.out.println("Pages allocated: [" + ret.position + ", " + (ret.position + ret.size - 1) + "]");
+    			return ret;
+    		}
+    	}
+    	
+    	int position;
+    	int size;
+    	PageBlock next = null;
+    }
+    
+    static PageBlock emptyPageList = null;
+    static int numEmptyPages;
 
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
