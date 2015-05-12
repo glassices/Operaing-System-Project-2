@@ -149,8 +149,10 @@ public class UserProcess {
 	int beginOffset = vaddr % Processor.pageSize;
 	int endVPN = (vaddr + amount) / Processor.pageSize;
 	int endOffset = (vaddr + amount) % Processor.pageSize;
-	//
-	System.out.println(vaddr + " " + length + " " + beginVPN + " " + endVPN);
+	if (beginVPN == endVPN) {
+		System.arraycopy(memory, pageTable[beginVPN].ppn * Processor.pageSize + beginOffset, data, offset, endOffset - beginOffset);
+		return amount;
+	}
 	System.arraycopy(memory, pageTable[beginVPN].ppn * Processor.pageSize + beginOffset, data, offset, Processor.pageSize - beginOffset);
 	offset += Processor.pageSize - beginOffset;
 	for (int i = beginVPN + 1; i < endVPN; i++){
@@ -208,8 +210,10 @@ public class UserProcess {
 	int beginOffset = vaddr % Processor.pageSize;
 	int endVPN = (vaddr + amount) / Processor.pageSize;
 	int endOffset = (vaddr + amount) % Processor.pageSize;
-	//
-	System.out.println(vaddr + " " + length + " " + beginVPN + " " + endVPN);
+	if (beginVPN == endVPN) {
+		System.arraycopy(data, offset, memory, pageTable[beginVPN].ppn * Processor.pageSize + beginOffset, endOffset - beginOffset);
+		return amount;
+	}
 	System.arraycopy(data, offset, memory, pageTable[beginVPN].ppn * Processor.pageSize + beginOffset, Processor.pageSize - beginOffset);
 	offset += Processor.pageSize - beginOffset;
 	for (int i = beginVPN + 1; i < endVPN; i++){
@@ -496,7 +500,7 @@ public class UserProcess {
             return -1;
         }
         OpenFile theFile= fd[fileDescriptor];
-        byte[] buf = new byte[maxLengthGiven];
+        byte[] buf = new byte[count + 1];
         int offset = 0;
         int length = count;
         int returnValue =  theFile.read(buf, offset, length);
@@ -519,7 +523,7 @@ public class UserProcess {
         }
         OpenFile theFile= fd[fileDescriptor];
         int pos=theFile.tell();
-        byte[] buf= new byte[maxLengthGiven];
+        byte[] buf= new byte[count + 1];	
         int offset = 0;
         int length = count;
         readVirtualMemory(buffer, buf);
